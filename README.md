@@ -60,3 +60,7 @@ What works:
 
 There is much exciting work to be done. The future is bright!
 
+
+
+<br><br><br>
+*known bugs: audio not working on mobile*
