@@ -45,6 +45,7 @@ interface ClaudePanelProps {
   strudelAdapter: StrudelAdapter | null;
   isMobile?: boolean;
   settings?: Settings;
+  onInfoClick?: () => void;
 }
 
 // quick action presets
@@ -57,7 +58,7 @@ const QUICK_ACTIONS = [
   { label: "minimal", prompt: "strip it down to essentials" },
 ];
 
-export default function ClaudePanel({ strudelAdapter, isMobile = false, settings }: ClaudePanelProps) {
+export default function ClaudePanel({ strudelAdapter, isMobile = false, settings, onInfoClick }: ClaudePanelProps) {
   const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -610,18 +611,23 @@ export default function ClaudePanel({ strudelAdapter, isMobile = false, settings
             }}
             disabled={isGenerating}
           />
-          <button
-            onClick={handleGenerate}
-            disabled={!prompt.trim() || isGenerating}
-            className="text-lg transition-opacity p-1"
-            style={{
-              color: "var(--text-alt)",
-              opacity: prompt.trim() && !isGenerating ? 1 : 0.5,
-            }}
-            title="Generate"
-          >
-            →
-          </button>
+          {onInfoClick && (
+            <button
+              onClick={onInfoClick}
+              className="p-1 transition-opacity hover:opacity-100"
+              style={{
+                color: "var(--text-alt)",
+                opacity: 0.5,
+              }}
+              title="About & License"
+            >
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="16" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12.01" y2="8" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </div>
