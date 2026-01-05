@@ -123,6 +123,8 @@ export function buildRetryPrompt(
 your previous attempt had issues:
 ${issueList}
 
+IMPORTANT: do not call methods on strings (e.g., "1 0 1".euclidean(...)); apply transforms to patterns, not string literals. Do not use .euclidean() (not available in this build).
+
 return to first principles:
 1. what should the listener feel? (be specific)
 2. what is the musical intention? (not the technique)

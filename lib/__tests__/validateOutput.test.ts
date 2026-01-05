@@ -31,6 +31,7 @@ $: s("hh*4")`;
 
   describe("voice limits", () => {
     it("rejects too many voices", () => {
+      // With maxVoices now 8, exceed by using 9 voices
       const code = `setcpm(120)
 $: note("c4").s("piano")
 $: note("d4").s("piano")
@@ -38,7 +39,9 @@ $: note("e4").s("piano")
 $: note("f4").s("piano")
 $: note("g4").s("piano")
 $: note("a4").s("piano")
-$: note("b4").s("piano")`;
+$: note("b4").s("piano")
+$: s("bd")
+$: s("hh*4")`;
 
       const result = validateStrudelCode(code);
       expect(result.valid).toBe(false);
@@ -114,9 +117,10 @@ $: note("c4").s("piano")`;
 
   describe("randomness limits", () => {
     it("rejects excessive random usage", () => {
+      // maxRandomUsage increased to 15; exceed with 16 rand() usages
       const code = `setcpm(120)
-$: note("c4").s("piano").gain(rand()).lpf(rand())
-$: s("bd").gain(rand()).delay(rand()).room(rand())`;
+$: s("bd").gain(rand()).delay(rand()).room(rand()).hpf(rand()).lpf(rand()).lpq(rand()).pan(rand()).shape(rand())
+$: note("c4").s("piano").gain(rand()).delay(rand()).room(rand()).crush(rand()).coarse(rand()).shape(rand()).pan(rand()).lpf(rand())`;
 
       const result = validateStrudelCode(code);
       expect(result.valid).toBe(false);
@@ -136,13 +140,56 @@ $: s("bd sd bd sd bd sd")`;
     });
 
     it("warns about high room values", () => {
+      // maxRoomSize increased to 0.95; exceed with 0.96
       const code = `setcpm(120)
-$: note("c4").s("piano").room(0.95)
+$: note("c4").s("piano").room(0.96)
 $: s("bd sd bd sd bd sd")`;
 
       const result = validateStrudelCode(code);
       expect(result.valid).toBe(false);
       expect(result.issues.some((i) => i.includes("extreme effect"))).toBe(true);
+    });
+  });
+
+  describe("invalid method usage", () => {
+    it("rejects string literal method calls", () => {
+      const code = `setcpm(120)
+$: s("bd").struct("1 0 1 0".euclidean(5, 8))
+$: s("hh")`;
+
+      const result = validateStrudelCode(code);
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.includes("string literal method"))).toBe(true);
+    });
+
+    it("rejects .resonance() method", () => {
+      const code = `setcpm(120)
+$: note("c4").s("piano").resonance(0.2)
+$: s("bd sd bd sd bd sd")`;
+
+      const result = validateStrudelCode(code);
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.includes("resonance"))).toBe(true);
+    });
+
+    it("rejects .note() method", () => {
+      const code = `setcpm(120)
+$: note("c4").s("piano").note(0)
+$: s("bd sd bd sd bd sd")`;
+
+      const result = validateStrudelCode(code);
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.includes(".note"))).toBe(true);
+    });
+
+    it("rejects .euclidean() method", () => {
+      const code = `setcpm(120)
+$: s("bd").euclidean(5, 8)
+$: s("hh")`;
+
+      const result = validateStrudelCode(code);
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((i) => i.includes("euclidean"))).toBe(true);
     });
   });
 
@@ -179,4 +226,3 @@ $: s("bd sd bd sd bd sd")`;
   });
 
 });
-
