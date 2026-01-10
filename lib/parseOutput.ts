@@ -1,5 +1,5 @@
-// strict output parser for claude responses
-// enforces the output contract: exactly one fenced js block, starts with setcpm
+// output parser for claude responses
+// expects exactly one fenced code block and starts with setcpm
 
 export interface ParseResult {
   success: boolean;
@@ -64,7 +64,6 @@ export function parseClaudeOutput(response: string): ParseResult {
   // extract the single code block
   const codeMatch = matches[0];
   const code = codeMatch[1]?.trim() || "";
-  const fullMatch = codeMatch[0];
 
   if (!code) {
     return {
@@ -75,34 +74,7 @@ export function parseClaudeOutput(response: string): ParseResult {
     };
   }
 
-  // check for prose outside code block
-  const beforeBlock = trimmed.substring(0, trimmed.indexOf(fullMatch)).trim();
-  const afterBlock = trimmed.substring(trimmed.indexOf(fullMatch) + fullMatch.length).trim();
-
-  if (beforeBlock.length > 0) {
-    // allow very minimal whitespace or newlines, reject actual text
-    const hasRealContent = /\S/.test(beforeBlock.replace(/[\n\r\s]/g, ""));
-    if (hasRealContent) {
-      return {
-        success: false,
-        code: null,
-        error: "found prose before code block - response must contain only code",
-        rawResponse: response,
-      };
-    }
-  }
-
-  if (afterBlock.length > 0) {
-    const hasRealContent = /\S/.test(afterBlock.replace(/[\n\r\s]/g, ""));
-    if (hasRealContent) {
-      return {
-        success: false,
-        code: null,
-        error: "found prose after code block - response must contain only code",
-        rawResponse: response,
-      };
-    }
-  }
+  // ignore any prose outside the code block to be resilient to model preambles
 
   // validate code content
   const validation = validateCodeContent(code);
@@ -223,4 +195,3 @@ export function isCodeUnchanged(oldCode: string, newCode: string): boolean {
 
   return normalize(oldCode) === normalize(newCode);
 }
-

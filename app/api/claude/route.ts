@@ -172,6 +172,21 @@ function detectApiKeyProvider(apiKey: string): "anthropic" | "openai" | "unknown
   return "unknown";
 }
 
+function getEnvApiKey(provider: "anthropic" | "openai"): string | undefined {
+  if (provider === "openai") {
+    return (
+      process.env.AUDIAL_OPENAI_API_KEY ||
+      process.env.OPENAI_API_KEY ||
+      process.env.AUDIAL_API_KEY
+    );
+  }
+  return (
+    process.env.AUDIAL_ANTHROPIC_API_KEY ||
+    process.env.ANTHROPIC_API_KEY ||
+    process.env.AUDIAL_API_KEY
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -185,12 +200,18 @@ export async function POST(req: NextRequest) {
       apiKey: requestApiKey,
     } = body;
 
-    // API key must be provided by the client via Settings
-    if (!requestApiKey) {
+    // Use client-provided model if available, otherwise default
+    const model = requestModel || "claude-sonnet-4-20250514";
+    const provider = getProviderFromModel(model);
+    const envApiKey = getEnvApiKey(provider);
+    const apiKey = requestApiKey || envApiKey;
+
+    // API key must be provided by the client via Settings or server env
+    if (!apiKey) {
       return new Response(
         JSON.stringify({
           error:
-            "No API key configured. Please add your API key and choose a model in Settings.",
+            "No API key configured. Add one in Settings or set AUDIAL_API_KEY (or provider-specific env var).",
         }),
         {
           status: 401,
@@ -198,12 +219,6 @@ export async function POST(req: NextRequest) {
         }
       );
     }
-
-    const apiKey = requestApiKey;
-
-    // Use client-provided model if available, otherwise default
-    const model = requestModel || "claude-sonnet-4-20250514";
-    const provider = getProviderFromModel(model);
     
     // Detect API key type and validate it matches the selected provider
     const keyProvider = detectApiKeyProvider(apiKey);

@@ -14,25 +14,62 @@ export type ModelId = typeof AVAILABLE_MODELS[number]["id"];
 
 export interface Settings {
   model: ModelId;
-  apiKey: string;
+  apiKeyAnthropic: string;
+  apiKeyOpenAI: string;
 }
 
 const DEFAULT_SETTINGS: Settings = {
   model: "claude-sonnet-4-20250514",
-  apiKey: "",
+  apiKeyAnthropic: "",
+  apiKeyOpenAI: "",
 };
 
 const STORAGE_KEY = "audial-settings";
+
+type ApiKeyProvider = "anthropic" | "openai" | "unknown";
+
+function detectApiKeyProvider(apiKey: string): ApiKeyProvider {
+  if (apiKey.startsWith("sk-ant-")) return "anthropic";
+  if (apiKey.startsWith("sk-") || apiKey.startsWith("sk-proj-")) return "openai";
+  return "unknown";
+}
+
+export function getProviderForModel(model: ModelId): "anthropic" | "openai" {
+  const match = AVAILABLE_MODELS.find((entry) => entry.id === model);
+  return match?.provider === "openai" ? "openai" : "anthropic";
+}
 
 export function loadSettings(): Settings {
   if (typeof window === "undefined") return DEFAULT_SETTINGS;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored);
+      const parsed = JSON.parse(stored) as Partial<Settings> & { apiKey?: string };
+      const model = parsed.model || DEFAULT_SETTINGS.model;
+      let apiKeyAnthropic = parsed.apiKeyAnthropic || DEFAULT_SETTINGS.apiKeyAnthropic;
+      let apiKeyOpenAI = parsed.apiKeyOpenAI || DEFAULT_SETTINGS.apiKeyOpenAI;
+      const legacyApiKey = typeof parsed.apiKey === "string" ? parsed.apiKey : "";
+
+      if (legacyApiKey) {
+        const legacyProvider = detectApiKeyProvider(legacyApiKey);
+        if (!apiKeyAnthropic && legacyProvider === "anthropic") {
+          apiKeyAnthropic = legacyApiKey;
+        } else if (!apiKeyOpenAI && legacyProvider === "openai") {
+          apiKeyOpenAI = legacyApiKey;
+        } else if (legacyProvider === "unknown") {
+          const modelProvider = getProviderForModel(model);
+          if (!apiKeyAnthropic && modelProvider === "anthropic") {
+            apiKeyAnthropic = legacyApiKey;
+          } else if (!apiKeyOpenAI && modelProvider === "openai") {
+            apiKeyOpenAI = legacyApiKey;
+          }
+        }
+      }
+
       return {
-        model: parsed.model || DEFAULT_SETTINGS.model,
-        apiKey: parsed.apiKey || DEFAULT_SETTINGS.apiKey,
+        model,
+        apiKeyAnthropic,
+        apiKeyOpenAI,
       };
     }
   } catch {
@@ -65,6 +102,14 @@ export default function SettingsModal({
 }: SettingsModalProps) {
   const [localSettings, setLocalSettings] = useState<Settings>(settings);
   const [showApiKey, setShowApiKey] = useState(false);
+  const activeModel = AVAILABLE_MODELS.find(
+    (model) => model.id === localSettings.model
+  );
+  const activeProvider = activeModel?.provider === "openai" ? "openai" : "anthropic";
+  const apiKeyValue =
+    activeProvider === "openai"
+      ? localSettings.apiKeyOpenAI
+      : localSettings.apiKeyAnthropic;
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -172,16 +217,20 @@ export default function SettingsModal({
             className="block text-sm font-medium mb-2"
             style={{ color: "var(--text-alt)", opacity: 0.8 }}
           >
-            API Key
+            API Key ({activeProvider === "openai" ? "OpenAI" : "Anthropic"})
           </label>
           <div className="relative">
             <input
               type={showApiKey ? "text" : "password"}
-              value={localSettings.apiKey}
+              value={apiKeyValue}
               onChange={(e) =>
-                setLocalSettings((s) => ({ ...s, apiKey: e.target.value }))
+                setLocalSettings((s) =>
+                  activeProvider === "openai"
+                    ? { ...s, apiKeyOpenAI: e.target.value }
+                    : { ...s, apiKeyAnthropic: e.target.value }
+                )
               }
-              placeholder="sk-ant-..."
+              placeholder={activeProvider === "openai" ? "sk-..." : "sk-ant-..."}
               autoComplete="off"
               data-1p-ignore
               data-lpignore="true"
@@ -231,6 +280,12 @@ export default function SettingsModal({
               )}
             </button>
           </div>
+          <p
+            className="mt-2 text-xs"
+            style={{ color: "var(--text-alt)", opacity: 0.6 }}
+          >
+            Saved per provider. Switch models to edit the other key.
+          </p>
         </div>
 
         {/* Actions */}
@@ -260,4 +315,3 @@ export default function SettingsModal({
     </div>
   );
 }
-
